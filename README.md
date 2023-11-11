@@ -1,0 +1,2 @@
+# MADIR
+implementation of madir
