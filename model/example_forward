@@ -1,0 +1,105 @@
+import torch
+from PIL import Image
+import requests
+from torchvision.transforms import Compose, ToTensor, Lambda, ToPILImage, CenterCrop, Resize
+import numpy as np
+import matplotlib.pyplot as plt
+
+import torch.nn.functional as f
+
+url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
+image = Image.open(requests.get(url, stream=True).raw)
+image.show()
+
+image_size = 256
+
+
+def transform(x):
+    compose = Compose([
+                Resize(image_size), CenterCrop(image_size),
+                ToTensor(), Lambda(lambda t: (t*2)-1),
+                ])
+    return compose(x)
+
+
+x_start0 = transform(image).unsqueeze(0)
+print(x_start0.shape)
+
+
+def reverse_transform(x):
+    compose = Compose([
+                         Lambda(lambda t: (t+1)/2), Lambda(lambda t: t.permute(1, 2, 0)),
+                         Lambda(lambda t: t*255.), Lambda(lambda t: t.numpy().astype(np.uint8)), ToPILImage(),
+                        ])
+    return compose(x)
+
+
+torch.manual_seed(0)  # for reproducibility
+
+
+def plot(imgs, with_orig=False, row_title=None, **imshow_kwargs):
+    if not isinstance(imgs[0], list):
+        imgs = [imgs]
+    num_rows = len(imgs)
+    num_cols = len(imgs[0]) + with_orig
+    fig, axs = plt.subplots(figsize=(200, 200), nrows=num_rows, ncols=num_cols, squeeze=False)
+    for row_idx, row in enumerate(imgs):
+        row = [image] + row if with_orig else row
+        for col_idx, img in enumerate(row):
+            ax = axs[row_idx, col_idx]
+            ax.imshow(np.asarray(img), **imshow_kwargs)
+            ax.set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+
+    if with_orig:
+        axs[0, 0].set(title='Original image')
+        axs[0, 0].title.set_size(8)
+    if row_title is not None:
+        for row_idx in range(num_rows):
+            axs[row_idx, 0].set(ylabels=row_title[row_idx])
+    plt.tight_layout()
+
+
+def extract(a, t, x_shape):  # 索引系数
+    batch_size = t.shape[0]
+    out = a.gather(-1, t.cpu())
+    return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
+
+
+def linear_beta_schedule(timesteps_):
+    beta_start = 0.0001
+    beta_end = 0.02
+    return torch.linspace(beta_start, beta_end, timesteps_)
+
+
+timesteps = 200
+betas = linear_beta_schedule(timesteps_=timesteps)
+alphas = 1. - betas
+# alphas_cumprod = torch.cumprod(alphas, axis=0)
+alphas_cumprod = torch.cumprod(alphas, dim=0)
+alphas_cumprod_prev = f.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
+sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
+# calculations for diffusion q(x_t|x_{t-1}) and others
+sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
+# calculations for posterior q(x_{t-1}|x_t, x_0)
+posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+
+
+def q_sample(x_start, t, noise=None):  # diffusion
+    if noise is None:
+        noise = torch.randn_like(x_start)
+
+    sqrt_alphas_cumprod_t = extract(sqrt_alphas_cumprod, t, x_start.shape)
+    sqrt_one_minus_alphas_cumprod_t = extract(sqrt_one_minus_alphas_cumprod, t, x_start.shape)
+    return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
+
+
+def get_noisy_image(x_start, t):
+    x_noisy = q_sample(x_start, t=t)
+    noisy_image = reverse_transform(x_noisy.squeeze())
+    return noisy_image
+
+
+plot([get_noisy_image(x_start0, torch.tensor([t])) for t in [0, 50, 100, 150, 199]])
+plt.show()
+
