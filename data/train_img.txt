@@ -1,0 +1,10 @@
+data/train_data/img/training_body_nometal_img10000_512x512x1.raw
+data/train_data/img/training_body_nometal_img10001_512x512x1.raw
+data/train_data/img/training_body_nometal_img10002_512x512x1.raw
+data/train_data/img/training_body_nometal_img10003_512x512x1.raw
+data/train_data/img/training_body_nometal_img10004_512x512x1.raw
+data/train_data/img/training_body_nometal_img10005_512x512x1.raw
+data/train_data/img/training_body_nometal_img10006_512x512x1.raw
+data/train_data/img/training_body_nometal_img10007_512x512x1.raw
+data/train_data/img/training_body_nometal_img10008_512x512x1.raw
+data/train_data/img/training_body_nometal_img10009_512x512x1.raw
