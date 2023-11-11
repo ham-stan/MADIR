@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import requests
 from tqdm import tqdm
-from dataset_ import image_size
+
+image_size = 128
 
 
 def exists(x):
